@@ -1,6 +1,6 @@
 use std::env;
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{self, BufRead, BufReader};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Instant;
@@ -9,6 +9,43 @@ use anyhow::{anyhow, Context};
 
 use regex::Regex;
 use colored::*;
+
+use include_dir::{include_dir, Dir};
+
+static VERUS_TARGET: Dir = include_dir!("../verus/source/target-verus/release");
+
+// TODO: windows
+use std::os::unix::fs::PermissionsExt;
+
+/// Set file mode to executable
+fn set_executable(file: &Path) -> io::Result<()> {
+    let metadata = fs::metadata(file)?;
+    let mut permissions = metadata.permissions();
+    permissions.set_mode(permissions.mode() | 0o111);
+    fs::set_permissions(file, permissions)
+}
+
+/// Recursively dumps the contents of a `Dir` to a specified path
+fn extract_dir(dir: &Dir, dest: &Path) -> io::Result<()> {
+    for file in dir.files() {
+        let relative_path = file.path();
+        let dest_path = dest.join(relative_path);
+
+        // Create all parent directories
+        if let Some(parent) = dest_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(&dest_path, file.contents())?;
+    }
+
+    for subdir in dir.dirs() {
+        let sub_dest = dest.join(subdir.path());
+        fs::create_dir_all(&sub_dest)?;
+        extract_dir(subdir, &dest)?;
+    }
+
+    Ok(())
+}
 
 /// Parse next_arg as <extern_name>=<prefix>-<extern_hash>.<ext>
 /// and return (extern_name, extern_hash)
@@ -60,7 +97,7 @@ fn cargo_message(level: Level, banner: &str, msg: &str) {
 }
 
 /// Based on the arguments to rustc, call Verus if the given crate should be verified
-fn check_verification(args: &Vec<String>) -> anyhow::Result<()> {
+fn check_verification(args: &Vec<String>, verus_path: &str) -> anyhow::Result<()> {
     let mut verus_args = Vec::new();
     let mut use_verus = false;
 
@@ -164,7 +201,7 @@ fn check_verification(args: &Vec<String>) -> anyhow::Result<()> {
         verify_deps_dir, crate_name, hash
     );
 
-    let mut verus_cmd = Command::new("verus");
+    let mut verus_cmd = Command::new(Path::new(verus_path).join("verus"));
     verus_cmd
         .env_remove("CARGO_MAKEFLAGS")
         .args(&verus_args)
@@ -236,29 +273,45 @@ fn check_verification(args: &Vec<String>) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn main() -> anyhow::Result<()> {
-    colored::control::set_override(true);
-
+fn vargo() -> anyhow::Result<i32> {
     let mut args = env::args().skip(1);
 
     // If `VARGO_AS_RUSTC` is set, we are using `vargo` in `RUSTC_WRAPPER`
     if env::var("VARGO_AS_RUSTC").is_ok() {
-        let rustc_path = args.next()
-            .context("When used as RUSTC_WRAPPER, vargo expects at least one argument for the rustc path")?;
+        if let Ok(verus_path) = env::var("VERUS_PATH") {
+            let rustc_path = args.next()
+                .context("When used as RUSTC_WRAPPER, vargo expects at least one argument for the rustc path")?;
 
-        let rustc_args: Vec<String> = args.collect();
+            let rustc_args: Vec<String> = args.collect();
 
-        check_verification(&rustc_args)
-            .context("Failed to call Verus")?;
+            check_verification(&rustc_args, &verus_path)
+                .context("Failed to call Verus")?;
 
-        // Always call rustc at the end
-        std::process::exit(Command::new(&rustc_path)
-            .args(&rustc_args)
-            .status()
-            .context("Failed to run rustc")?
-            .code()
-            .unwrap_or(1));
+            // Always call rustc at the end
+            return Ok(Command::new(&rustc_path)
+                .args(&rustc_args)
+                .status()
+                .context("Failed to run rustc")?
+                .code()
+                .unwrap_or(1));
+        }
     }
+
+    let temp_dir = tempdir::TempDir::new("verus")?;
+
+    // Extract the built-in version of Verus (unless VERUS_PATH is specified)
+    let verus_path = if let Ok(path) = env::var("VERUS_PATH") {
+        path
+    } else {
+        extract_dir(&VERUS_TARGET, temp_dir.path())?;
+
+        set_executable(&temp_dir.path().join("verus"))?;
+        set_executable(&temp_dir.path().join("rust_verify"))?;
+        set_executable(&temp_dir.path().join("z3"))?;
+
+        temp_dir.path().to_str()
+            .context("Invalid character in verus path")?.to_string()
+    };
 
     let exe_path = env::current_exe()
         .context("Failed to get the vargo executable path")?
@@ -266,14 +319,23 @@ fn main() -> anyhow::Result<()> {
         .to_string();
 
     // Defer the call to `cargo`
-    std::process::exit(Command::new("cargo")
+    let res = Command::new("cargo")
         .env("RUSTC_WRAPPER", exe_path)
         // A flag to indicate that all child process running vargo should be used as a RUSTC_WRAPPER
         // TODO: this is a bit hacky
         .env("VARGO_AS_RUSTC", "true")
+        .env("VERUS_PATH", verus_path)
         .args(env::args().skip(1))
         .status()
         .context("Failed to run cargo")?
         .code()
-        .unwrap_or(1));
+        .unwrap_or(1);
+
+    drop(temp_dir);
+    Ok(res)
+}
+
+fn main() -> anyhow::Result<()> {
+    colored::control::set_override(true);
+    std::process::exit(vargo()?);
 }
