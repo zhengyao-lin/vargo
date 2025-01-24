@@ -20,6 +20,7 @@ fn add_non_target_watch_list(dir: &PathBuf) -> Result<(), Box<dyn Error>> {
 
 fn main() -> Result<(), Box<dyn Error>> {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
+    let verus_dir = Path::new(&manifest_dir).join("verus");
 
     // Initialize the Verus submodule via git
     if !Command::new("git")
@@ -29,13 +30,58 @@ fn main() -> Result<(), Box<dyn Error>> {
         Err("Failed to initialize submodules")?;
     }
 
-    // Build Verus
-    let verus_dir = Path::new(&manifest_dir).join("verus");
-
     // Add everything in source to the watch list except for target*
     // TOOD: might be incorrect for future versions of Verus
     add_non_target_watch_list(&verus_dir.join("source"))?;
     add_non_target_watch_list(&verus_dir.join("tools").join("vargo"))?;
+
+    println!("cargo:rerun-if-env-changed=VERUS_REPO");
+    println!("cargo:rerun-if-env-changed=VERUS_BRANCH");
+    println!("cargo:rerun-if-env-changed=VERUS_COMMIT");
+
+    // If the user explicitly specified a Verus repo and a commit
+    // use that instead of the default one
+    if env::var("VERUS_REPO").is_ok() ||
+        env::var("VERUS_BRANCH").is_ok() ||
+        env::var("VERUS_COMMIT").is_ok() {
+
+        // Change to the target repo
+        if let Ok(repo) = env::var("VERUS_REPO") {
+            if !Command::new("git")
+                .current_dir(&verus_dir)
+                .args(["remote", "set-url", "origin", &repo])
+                .status()?.success() {
+                Err("Failed to set Verus repo")?;
+            }
+        }
+
+        // Change to the target branch
+        if let Ok(branch) = env::var("VERUS_BRANCH") {
+            if !Command::new("git")
+                .current_dir(&verus_dir)
+                .args(["fetch", "origin", &branch])
+                .status()?.success() {
+                Err("Failed to set Verus branch")?;
+            }
+
+            if !Command::new("git")
+                .current_dir(&verus_dir)
+                .args(["checkout", &branch])
+                .status()?.success() {
+                Err("Failed to set Verus branch")?;
+            }
+        }
+
+        // Change to the target commit
+        if let Ok(commit) = env::var("VERUS_COMMIT") {
+            if !Command::new("git")
+                .current_dir(&verus_dir)
+                .args(["checkout", &commit])
+                .status()?.success() {
+                Err("Failed to set Verus commit")?;
+            }
+        }
+    }
 
     // Download Z3 using a script in Verus (source/tools/get-z3.sh)
     // TODO: write this directly in Rust
