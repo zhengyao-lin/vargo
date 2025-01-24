@@ -1,6 +1,6 @@
 # vargo
 
-A wrapper around cargo so that it automatically runs verification (w/ Verus) on related crates.
+A wrapper around cargo so that it automatically runs verification (w/ [Verus](https://github.com/verus-lang/verus/)) on related crates.
 Not related to "vargo" as the internal build script in Verus (I need to rename at some point, open to suggestions).
 
 ## System Requirements
