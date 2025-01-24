@@ -52,13 +52,12 @@ enum Level {
 fn cargo_message(level: Level, banner: &str, msg: &str) {
     println!("{:>12} {}",
         match level {
-            Level::Note => banner.bold().bright_green(),
-            Level::Error => banner.bold().bright_red(),
+            Level::Note => banner.bold().green(),
+            Level::Error => banner.bold().red(),
         },
         msg,
     )
 }
-
 
 /// Based on the arguments to rustc, call Verus if the given crate should be verified
 fn check_verification(args: &Vec<String>) -> anyhow::Result<()> {
