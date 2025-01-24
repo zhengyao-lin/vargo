@@ -6,7 +6,7 @@ use std::process::Command;
 use std::error::Error;
 
 const DEFAULT_VERUS_REPO: &str = "https://github.com/verus-lang/verus.git";
-const DEFAULT_VERUS_COMMIT: &str = "0eedcf063d07ea0359ebece1f142163b8a87e361";
+const DEFAULT_VERUS_COMMIT: &str = "HEAD";
 
 /// Add all subdirectories and files of `dir` to the watch list
 /// if they don't start with "target"

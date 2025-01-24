@@ -17,8 +17,7 @@ To build and install `vargo`, run the following:
 ```
 cargo install --git https://github.com/zhengyao-lin/vargo.git
 ```
-This will build a specific commit of the main Verus branch (specified in `build.rs`),
-and then pack it along with `vargo`.
+This will build the latest commit of [Verus](https://github.com/verus-lang/verus/), and then pack it along with `vargo`.
 To use another fork of Verus, there are two options via environment variables:
 1. To use another remote repo/branch/commit, run `VERUS_REPO=<Git URL> [VERUS_BRANCH=...] [VERUS_COMMIT=...] cargo install ...`
 2. To use a local repo, run `VERUS_LOCAL=<Locally checked-out Verus repo> cargo install ...`
