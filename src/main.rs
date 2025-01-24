@@ -1,6 +1,6 @@
 use std::env;
 use std::fs;
-use std::io::{self, BufRead, BufReader};
+use std::io::{self, Write, BufRead, BufReader};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Instant;
@@ -12,7 +12,7 @@ use colored::*;
 
 use include_dir::{include_dir, Dir};
 
-static VERUS_TARGET: Dir = include_dir!("../verus/source/target-verus/release");
+static VERUS_TARGET: Dir = include_dir!("$CARGO_MANIFEST_DIR/target/verus");
 
 // TODO: windows
 use std::os::unix::fs::PermissionsExt;
@@ -201,7 +201,7 @@ fn check_verification(args: &Vec<String>, verus_path: &str) -> anyhow::Result<()
         verify_deps_dir, crate_name, hash
     );
 
-    let mut verus_cmd = Command::new(Path::new(verus_path).join("verus"));
+    let mut verus_cmd = Command::new(verus_path);
     verus_cmd
         .env_remove("CARGO_MAKEFLAGS")
         .args(&verus_args)
@@ -297,9 +297,8 @@ fn vargo() -> anyhow::Result<i32> {
         }
     }
 
+    // Extract the built-in version of Verus to a tmp directory (unless VERUS_PATH is specified)
     let temp_dir = tempdir::TempDir::new("verus")?;
-
-    // Extract the built-in version of Verus (unless VERUS_PATH is specified)
     let verus_path = if let Ok(path) = env::var("VERUS_PATH") {
         path
     } else {
@@ -309,7 +308,7 @@ fn vargo() -> anyhow::Result<i32> {
         set_executable(&temp_dir.path().join("rust_verify"))?;
         set_executable(&temp_dir.path().join("z3"))?;
 
-        temp_dir.path().to_str()
+        temp_dir.path().join("verus").to_str()
             .context("Invalid character in verus path")?.to_string()
     };
 
@@ -317,6 +316,39 @@ fn vargo() -> anyhow::Result<i32> {
         .context("Failed to get the vargo executable path")?
         .to_str().context("Invalid character in the vargo executable path")?
         .to_string();
+
+    // Overwrite some cargo commands
+    if let Some(cmd) = args.next() {
+        // If the first command is exactly `verus` (i.e. `vargo verus` is called)
+        // then we call verus directly
+        if cmd == "verus" {
+            let verus_args: Vec<String> = args.collect();
+            return Ok(Command::new(&verus_path)
+                .args(&verus_args)
+                .status()
+                .context("Failed to run Verus")?
+                .code()
+                .unwrap_or(1));
+        } else if cmd == "version" {
+            println!("vargo {}", env!("CARGO_PKG_VERSION"));
+
+            // Call Verus to get version
+            let verus_version = Command::new(&verus_path)
+                .arg("--version")
+                .output()
+                .context("Failed to get Verus version")?;
+            io::stdout().write_all(&verus_version.stdout)?;
+
+            // Finally call cargo version
+            let cargo_version = Command::new("cargo")
+                .arg("--version")
+                .output()
+                .context("Failed to get Cargo version")?;
+            io::stdout().write_all(&cargo_version.stdout)?;
+
+            return Ok(0);
+        }
+    }
 
     // Defer the call to `cargo`
     let res = Command::new("cargo")
