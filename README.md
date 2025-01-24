@@ -73,3 +73,7 @@ This is done at the crate level by adding the following flag in `Cargo.toml` in 
 [verus]
 extra_flags = "--rlimit 10086"
 ```
+
+## Known issues
+
+- Cannot explicitly import spec items from another crate (e.g. `use crate_a::spec_def`), since we still use `rustc` for compilation.

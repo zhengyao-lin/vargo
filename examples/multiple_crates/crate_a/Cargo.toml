@@ -1,0 +1,11 @@
+[package]
+name = "crate_a"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+builtin_macros = { git = "https://github.com/verus-lang/verus.git" }
+builtin = { git = "https://github.com/verus-lang/verus.git" }
+vstd = { git = "https://github.com/verus-lang/verus.git" }
