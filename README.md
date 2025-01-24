@@ -2,6 +2,7 @@
 
 A wrapper around cargo so that it automatically runs verification (w/ [Verus](https://github.com/verus-lang/verus/)) on related crates.
 Not related to "vargo" as the internal build script in Verus (I need to rename at some point, open to suggestions).
+The way it works is also similar to [`cargo verus`](https://github.com/verus-lang/verus/pull/1138) (i.e., via `RUSTC_WRAPPER`)
 
 ## System Requirements
 
