@@ -3,7 +3,7 @@
 A wrapper around cargo so that it automatically runs verification (w/ [Verus](https://github.com/verus-lang/verus/)) on related crates.
 
 Note:
-- Not related to "vargo" as the internal build script in Verus (I need to rename at some point, open to suggestions).
+- Not related to "vargo" as the internal build script in Verus (I need to rename at some point).
 - The way it works is also similar to [`cargo verus`](https://github.com/verus-lang/verus/pull/1138) (i.e., via `RUSTC_WRAPPER`),
 but we require no change to the Verus repo, and we translate flags for `rustc` to flags for `verus`.
 
@@ -15,7 +15,7 @@ Probably only Linux and macOS are supported (on x86 or ARM).
 
 To build and install `vargo`, run the following:
 ```
-cargo install --git https://github.com/zhengyao-lin/vargo.git
+cargo install --git https://github.com/zhengyao-lin/vargo.git vargo
 ```
 This will build the latest commit of [Verus](https://github.com/verus-lang/verus/), and then pack it along with `vargo`.
 To use another fork of Verus, there are two options via environment variables:
