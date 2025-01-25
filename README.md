@@ -15,7 +15,7 @@ Probably only Linux and macOS are supported (on x86 or ARM).
 
 To build and install `vargo`, run the following:
 ```
-cargo install --git https://github.com/zhengyao-lin/vargo.git
+cargo install --git https://github.com/zhengyao-lin/vargo.git vargo
 ```
 This will build the latest commit of [Verus](https://github.com/verus-lang/verus/), and then pack it along with `vargo`.
 To use another fork of Verus, there are two options via environment variables:
