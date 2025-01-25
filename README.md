@@ -29,6 +29,7 @@ If `cargo install` is successful, a command `vargo` will be available in your sy
 Most commands are similar to `cargo`, for example,
 ```
 vargo build [--release] # Verify and build the current crate/workspace
+vargo check # Verify without building
 vargo test
 vargo bench
 ...
